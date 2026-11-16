@@ -245,7 +245,7 @@ export default function Sala() {
             <div className="rounded-2xl border border-white/15 bg-zinc-950/75 p-4 space-y-2.5">
               <div className="flex items-center gap-2.5 text-sm font-bold capitalize text-white">
                 <CalendarDays size={18} className="text-red-500 shrink-0" />
-                <span>{new Date(partido.fecha_hora).toLocaleString('es-AR', { dateStyle: 'full', timeStyle: 'short' })}</span>
+                <span>{new Date(partido.fecha_hora).toLocaleString('es-AR', { dateStyle: 'full', timeStyle: 'short', hour12: false })} hs</span>
               </div>
               <div className="flex items-center justify-between gap-2 text-sm text-zinc-300">
                 <div className="flex items-center gap-2.5">

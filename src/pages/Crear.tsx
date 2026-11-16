@@ -99,7 +99,8 @@ export default function Crear() {
         month: 'long',
         hour: '2-digit',
         minute: '2-digit',
-      })
+        hour12: false,
+      }) + ' hs'
     : 'Elegí día y horario en el formulario'
 
   return (
@@ -372,7 +373,7 @@ export default function Crear() {
                   <div className="mt-4 flex items-center gap-2.5 text-sm font-medium text-white">
                     <CalendarDays size={16} className="shrink-0 text-red-400" />
                     <span className="capitalize">
-                      {new Date(m.fecha_hora).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' })}
+                      {new Date(m.fecha_hora).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short', hour12: false })} hs
                     </span>
                   </div>
 
