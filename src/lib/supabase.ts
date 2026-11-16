@@ -5,6 +5,9 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
 export const supabase = createClient(url, key)
 
+export const PARTIDO_COLS =
+  'id,formato,cupo_maximo,fecha_hora,ubicacion,link_maps,precio_cancha,tiene_sena,monto_sena,estado,numero_fecha,resultado_texto,mvp_imagen_url,mvp_cerrado,creado_en'
+
 export interface Jugador {
   id: string
   nombre: string

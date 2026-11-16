@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Crown, Camera, ChevronLeft, ChevronRight, Trophy, CheckCircle2 } from 'lucide-react'
-import { supabase, type Partido, type Inscripcion } from '../lib/supabase'
+import { supabase, PARTIDO_COLS, type Partido, type Inscripcion } from '../lib/supabase'
 
 interface Fila {
   jugador_id: string
@@ -51,12 +51,12 @@ function PorFecha() {
   useEffect(() => {
     supabase
       .from('partidos')
-      .select('*')
+      .select(PARTIDO_COLS)
       .in('estado', ['confirmado', 'finalizado'])
       .not('numero_fecha', 'is', null)
       .order('numero_fecha')
       .then(({ data }) => {
-        const p = (data ?? []) as Partido[]
+        const p = (data ?? []) as unknown as Partido[]
         setPartidos(p)
         setI(Math.max(p.length - 1, 0))
       })

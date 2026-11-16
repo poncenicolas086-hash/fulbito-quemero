@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CalendarDays, MapPinned, Sparkles, Users } from 'lucide-react'
-import { supabase, setAdminToken, type Partido } from '../lib/supabase'
+import { supabase, PARTIDO_COLS, setAdminToken, type Partido } from '../lib/supabase'
 
 const FORMATOS: Record<string, number> = { F5: 10, F6: 12, F7: 14, F8: 16 }
 const money = (n: number) => '$' + Math.round(n).toLocaleString('es-AR')
@@ -45,10 +45,10 @@ export default function Crear() {
   useEffect(() => {
     supabase
       .from('partidos')
-      .select('*, inscripciones(id)')
+      .select(`${PARTIDO_COLS}, inscripciones(id)`)
       .order('fecha_hora', { ascending: false })
       .limit(18)
-      .then(({ data }) => setPartidos((data ?? []) as PartidoConConteo[]))
+      .then(({ data }) => setPartidos((data ?? []) as unknown as PartidoConConteo[]))
   }, [])
 
   const cupo = formato === 'CUSTOM' ? custom : FORMATOS[formato]

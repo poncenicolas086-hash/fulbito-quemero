@@ -7,6 +7,7 @@ import Versus from '../components/Versus'
 import ReprogramarModal from '../components/ReprogramarModal'
 import {
   supabase,
+  PARTIDO_COLS,
   getAdminToken,
   setAdminToken,
   getMiJugador,
@@ -47,11 +48,11 @@ export default function Sala() {
 
   const cargar = useCallback(async () => {
     const [p, i, j] = await Promise.all([
-      supabase.from('partidos').select('*').eq('id', id).single(),
+      supabase.from('partidos').select(PARTIDO_COLS).eq('id', id).single(),
       supabase.from('inscripciones').select('*, jugadores(id,nombre)').eq('partido_id', id).order('orden_llegada'),
       supabase.from('jugadores').select('*').order('nombre'),
     ])
-    if (p.data) setPartido(p.data as Partido)
+    if (p.data) setPartido(p.data as unknown as Partido)
     setInsc((i.data ?? []) as Inscripcion[])
     setJugadores((j.data ?? []) as Jugador[])
   }, [id])
