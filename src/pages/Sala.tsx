@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
-import { Copy, MapPinned, CalendarDays, Users, ShieldCheck, Check, Sparkles, UserMinus } from 'lucide-react'
+import { Copy, MapPinned, CalendarDays, Users, ShieldCheck, Check, Sparkles, UserMinus, Lock, User } from 'lucide-react'
 import VotarStats from '../components/VotarStats'
 import TercerTiempo from '../components/TercerTiempo'
 import Versus from '../components/Versus'
@@ -11,10 +11,10 @@ import {
   getAdminToken,
   setAdminToken,
   getMiJugador,
-  setMiJugador,
+  getMiNombre,
+  setMiSesion,
   type Partido,
   type Inscripcion,
-  type Jugador,
 } from '../lib/supabase'
 
 const statusColor: Record<Partido['estado'], string> = {
@@ -32,12 +32,25 @@ export default function Sala() {
   const [qs] = useSearchParams()
   const [partido, setPartido] = useState<Partido | null>(null)
   const [insc, setInsc] = useState<Inscripcion[]>([])
-  const [jugadores, setJugadores] = useState<Jugador[]>([])
-  const [q, setQ] = useState('')
   const [msg, setMsg] = useState('')
   const [yo, setYo] = useState<string | null>(getMiJugador())
+  const [yoNombre, setYoNombre] = useState<string | null>(getMiNombre())
   const [reprog, setReprog] = useState(false)
   const [copied, setCopied] = useState<'player' | 'admin' | null>(null)
+
+  // Campos de login rápido en la sala
+  const [nick, setNick] = useState('')
+  const [pin, setPin] = useState('')
+  const [busyAuth, setBusyAuth] = useState(false)
+
+  useEffect(() => {
+    const sync = () => {
+      setYo(getMiJugador())
+      setYoNombre(getMiNombre())
+    }
+    window.addEventListener('fulbito-auth-change', sync)
+    return () => window.removeEventListener('fulbito-auth-change', sync)
+  }, [])
 
   useEffect(() => {
     const t = qs.get('admin')
@@ -47,14 +60,12 @@ export default function Sala() {
   const esAdmin = !!token
 
   const cargar = useCallback(async () => {
-    const [p, i, j] = await Promise.all([
+    const [p, i] = await Promise.all([
       supabase.from('partidos').select(PARTIDO_COLS).eq('id', id).single(),
       supabase.from('inscripciones').select('*, jugadores(id,nombre)').eq('partido_id', id).order('orden_llegada'),
-      supabase.from('jugadores').select('*').order('nombre'),
     ])
     if (p.data) setPartido(p.data as unknown as Partido)
     setInsc((i.data ?? []) as Inscripcion[])
-    setJugadores((j.data ?? []) as Jugador[])
   }, [id])
 
   useEffect(() => {
@@ -72,26 +83,35 @@ export default function Sala() {
   const titulares = useMemo(() => insc.slice(0, partido?.cupo_maximo ?? 0), [insc, partido])
   const suplentes = useMemo(() => insc.slice(partido?.cupo_maximo ?? 0), [insc, partido])
   const anotados = new Set(insc.map(i => i.jugador_id))
-  const sugeridos = jugadores.filter(j => q && j.nombre.toLowerCase().includes(q.trim().toLowerCase()))
-  const existeExacto = jugadores.some(j => j.nombre.trim().toLowerCase() === q.trim().toLowerCase())
+  const miInscripcion = insc.find(i => i.jugador_id === yo)
 
   async function anotar(jid: string) {
-    if (anotados.has(jid)) return setMsg('Ya está anotado')
+    if (anotados.has(jid)) return setMsg('Ya estás anotado en este partido')
     const { error } = await supabase.from('inscripciones').insert({ partido_id: id, jugador_id: jid })
     if (error) return setMsg(error.message)
-    setMiJugador(jid)
-    setYo(jid)
-    setQ('')
     setMsg('')
   }
 
-  async function crearYAnotar() {
-    const nombre = q.trim()
-    if (!nombre) return
-    const { data, error } = await supabase.from('jugadores').insert({ nombre }).select().single()
-    if (error) return setMsg(error.code === '23505' ? 'Ese nombre ya existe, elegilo de la lista' : error.message)
-    setJugadores(p => [...p, data as Jugador])
-    anotar(data.id)
+  async function entrarYAnotar(e: React.FormEvent) {
+    e.preventDefault()
+    if (!nick.trim() || !pin.trim()) return setMsg('Completá tu Nick y tu PIN / clave')
+    setBusyAuth(true)
+    setMsg('')
+    const { data, error } = await supabase.rpc('entrar_jugador', {
+      p_nombre: nick.trim(),
+      p_pin: pin.trim(),
+    })
+    setBusyAuth(false)
+    if (error || !data?.[0]) {
+      return setMsg(error?.message ?? 'Error al ingresar')
+    }
+    const row = data[0]
+    setMiSesion(row.id, row.nombre, row.token)
+    setNick('')
+    setPin('')
+    if (!anotados.has(row.id)) {
+      await anotar(row.id)
+    }
   }
 
   const bajar = async (iid: string) => {
@@ -126,7 +146,7 @@ export default function Sala() {
 
   return (
     <div className="space-y-6">
-      {/* Cabecera de Sala estilo fulbiquemero */}
+      {/* Cabecera de Sala */}
       <section className="card-white overflow-hidden">
         <div className="flex flex-col gap-4 border-b border-white/15 pb-5 md:flex-row md:items-center md:justify-between">
           <div>
@@ -317,48 +337,77 @@ export default function Sala() {
               <Users size={15} />
               Convocatoria e Inscripciones
             </div>
-            {yo && (
-              <span className="text-xs text-zinc-400">
-                Identificado como:{' '}
-                <b className="text-white">{jugadores.find(j => j.id === yo)?.nombre ?? 'Jugador'}</b>
+            {yo && yoNombre && (
+              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-zinc-300">
+                Tu cuenta: <b className="text-white">{yoNombre}</b>
               </span>
             )}
           </div>
 
-          {abierta && (
-            <div className="space-y-2.5">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  className="input flex-1"
-                  placeholder="Escribí tu nombre para anotarte o buscarte…"
-                  value={q}
-                  onChange={e => setQ(e.target.value)}
-                />
-                {q.trim() && !existeExacto && (
-                  <button type="button" className="btn-red shrink-0" onClick={crearYAnotar}>
-                    Crear “{q.trim()}” y anotarme
+          {!yo ? (
+            <form
+              onSubmit={entrarYAnotar}
+              className="rounded-2xl border border-red-500/30 bg-zinc-950/80 p-4 space-y-3"
+            >
+              <div className="text-xs font-bold text-white">
+                🔒 Ingresá tu Nick y PIN para anotarte o votar (si sos nuevo, tu cuenta se crea sola)
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                <div className="relative">
+                  <User size={14} className="pointer-events-none absolute left-3.5 top-3.5 text-zinc-500" />
+                  <input
+                    className="input pl-9"
+                    placeholder="Tu Nick (ej: Levi)"
+                    value={nick}
+                    onChange={e => setNick(e.target.value)}
+                  />
+                </div>
+                <div className="relative">
+                  <Lock size={14} className="pointer-events-none absolute left-3.5 top-3.5 text-zinc-500" />
+                  <input
+                    className="input pl-9"
+                    type="password"
+                    placeholder="Tu PIN / clave"
+                    value={pin}
+                    onChange={e => setPin(e.target.value)}
+                  />
+                </div>
+                <button type="submit" className="btn-red" disabled={busyAuth}>
+                  {busyAuth ? 'Entrando…' : abierta ? 'Entrar y anotarme' : 'Entrar'}
+                </button>
+              </div>
+              {msg && <p className="text-xs font-semibold text-red-400">{msg}</p>}
+            </form>
+          ) : (
+            abierta && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/15 bg-zinc-950/75 p-3.5">
+                <div className="text-sm text-zinc-200">
+                  {miInscripcion ? (
+                    <span>
+                      Ya estás anotado en la lista como <b className="text-white">{yoNombre}</b> ✓
+                    </span>
+                  ) : (
+                    <span>
+                      ¿Jugás esta fecha, <b className="text-white">{yoNombre}</b>?
+                    </span>
+                  )}
+                </div>
+                {miInscripcion ? (
+                  <button
+                    type="button"
+                    onClick={() => bajar(miInscripcion.id)}
+                    className="rounded-xl border border-red-500/40 bg-red-500/15 px-3.5 py-2 text-xs font-bold text-red-200 hover:bg-red-500/25"
+                  >
+                    Bajarme del partido
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => anotar(yo)} className="btn-red py-2 text-xs">
+                    + Anotarme al partido
                   </button>
                 )}
+                {msg && <p className="w-full text-xs font-semibold text-red-400">{msg}</p>}
               </div>
-
-              {sugeridos.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {sugeridos.map(j => (
-                    <button
-                      key={j.id}
-                      type="button"
-                      disabled={anotados.has(j.id)}
-                      onClick={() => anotar(j.id)}
-                      className="rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-bold text-white transition hover:border-red-500 hover:bg-red-600 disabled:opacity-40"
-                    >
-                      {j.nombre} {anotados.has(j.id) ? '✓ Anotado' : '+ Anotarme'}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {msg && <p className="text-xs font-semibold text-red-400">{msg}</p>}
-            </div>
+            )
           )}
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -369,10 +418,6 @@ export default function Sala() {
               yo={yo}
               esAdmin={esAdmin}
               abierta={abierta}
-              onSelectYo={jid => {
-                setMiJugador(jid)
-                setYo(jid)
-              }}
               onBajar={bajar}
             />
             <Lista
@@ -382,10 +427,6 @@ export default function Sala() {
               yo={yo}
               esAdmin={esAdmin}
               abierta={abierta}
-              onSelectYo={jid => {
-                setMiJugador(jid)
-                setYo(jid)
-              }}
               onBajar={bajar}
             />
           </div>
@@ -394,7 +435,7 @@ export default function Sala() {
         <Versus partidoId={id} titulares={titulares} />
       </section>
 
-      {/* Votación secreta FUT y Tercer Tiempo */}
+      {/* Votación secreta de nivel (1 a 10) y Tercer Tiempo */}
       {abierta && yo && anotados.has(yo) && <VotarStats partidoId={id} yo={yo} jugadores={insc} />}
 
       {(partido.estado === 'confirmado' || partido.estado === 'finalizado') && (
@@ -417,7 +458,6 @@ function Lista({
   yo,
   esAdmin,
   abierta,
-  onSelectYo,
   onBajar,
 }: {
   titulo: string
@@ -426,7 +466,6 @@ function Lista({
   yo: string | null
   esAdmin: boolean
   abierta: boolean
-  onSelectYo: (jid: string) => void
   onBajar: (id: string) => void
 }) {
   return (
@@ -450,14 +489,7 @@ function Lista({
               >
                 <div className="flex items-center gap-2 truncate">
                   <span className="text-xs font-bold text-zinc-500">{n + 1}.</span>
-                  <button
-                    type="button"
-                    title="Tocá si sos vos para votar"
-                    onClick={() => onSelectYo(i.jugador_id)}
-                    className="truncate font-semibold text-white hover:text-red-300 text-left"
-                  >
-                    {i.jugadores?.nombre}
-                  </button>
+                  <span className="truncate font-semibold text-white">{i.jugadores?.nombre}</span>
                   {soyYo && <span className="rounded bg-white px-1.5 py-0.5 text-[9px] font-black text-red-600">VOS</span>}
                 </div>
 
@@ -477,8 +509,8 @@ function Lista({
                     <button
                       type="button"
                       title="Dar de baja"
-                      className="rounded-lg p-1 text-zinc-400 hover:bg-red-500/20 hover:text-red-400"
                       onClick={() => onBajar(i.id)}
+                      className="rounded-lg p-1 text-zinc-400 hover:bg-red-500/20 hover:text-red-400"
                     >
                       <UserMinus size={14} />
                     </button>

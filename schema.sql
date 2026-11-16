@@ -4,6 +4,8 @@ create extension if not exists pgcrypto;
 create table if not exists jugadores (
   id uuid primary key default gen_random_uuid(),
   nombre text not null check (length(trim(nombre)) > 0),
+  pin_hash text,
+  session_token text default encode(gen_random_bytes(16),'hex'),
   creado_en timestamptz default now()
 );
 create unique index if not exists jugadores_nombre_uq on jugadores (lower(trim(nombre)));
@@ -100,10 +102,55 @@ create policy "cargar goles" on inscripciones for update using (true) with check
 
 -- Permisos de tablas para cliente público (anon / authenticated)
 grant usage on schema public to anon, authenticated;
-grant select, insert on public.jugadores to anon, authenticated;
+revoke select, insert, update, delete on public.jugadores from anon, authenticated;
+grant select (id, nombre, creado_en) on public.jugadores to anon, authenticated;
 grant select, insert, update, delete on public.inscripciones to anon, authenticated;
 grant select, insert, update on public.premios_anuales to anon, authenticated;
+grant select on public.votos_mvp to anon, authenticated;
 grant usage, select on all sequences in schema public to anon, authenticated;
+
+drop policy if exists "leer votos mvp" on votos_mvp;
+create policy "leer votos mvp" on votos_mvp for select using (true);
+
+create or replace function entrar_jugador(p_nombre text, p_pin text)
+returns table(id uuid, nombre text, token text, es_nuevo boolean)
+language plpgsql security definer as $$
+declare
+  j record;
+  v_nombre text := trim(p_nombre);
+  v_pin text := trim(p_pin);
+begin
+  if length(v_nombre) < 2 then
+    raise exception 'El nick debe tener al menos 2 caracteres';
+  end if;
+  if length(v_pin) < 3 then
+    raise exception 'El PIN o clave debe tener al menos 3 caracteres';
+  end if;
+
+  select * into j from jugadores where lower(trim(jugadores.nombre)) = lower(v_nombre) limit 1;
+
+  if j.id is null then
+    insert into jugadores (nombre, pin_hash)
+    values (v_nombre, crypt(v_pin, gen_salt('bf')))
+    returning * into j;
+    return query select j.id, j.nombre, j.session_token, true;
+    return;
+  end if;
+
+  if j.pin_hash is null then
+    update jugadores set pin_hash = crypt(v_pin, gen_salt('bf'))
+    where jugadores.id = j.id
+    returning * into j;
+    return query select j.id, j.nombre, j.session_token, false;
+    return;
+  end if;
+
+  if j.pin_hash <> crypt(v_pin, j.pin_hash) then
+    raise exception 'PIN o clave incorrecta para "%"', j.nombre;
+  end if;
+
+  return query select j.id, j.nombre, j.session_token, false;
+end $$;
 
 -- El admin_token nunca se expone al cliente anónimo
 revoke select on partidos from anon, authenticated;

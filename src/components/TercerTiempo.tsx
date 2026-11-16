@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Crown, Minus, Plus, Camera, Flame } from 'lucide-react'
 import { supabase, type Partido, type Inscripcion } from '../lib/supabase'
 
@@ -10,24 +10,46 @@ interface Props {
   onChange: () => void
 }
 
+interface VotoMvpRow {
+  votante_id: string
+  votado_id: string
+}
+
 export default function TercerTiempo({ partido, titulares, yo, token, onChange }: Props) {
   const esAdmin = !!token
-  const [prog, setProg] = useState({ votaron: 0, total: titulares.length })
+  const [votosMvp, setVotosMvp] = useState<VotoMvpRow[]>([])
   const [miVoto, setMiVoto] = useState('')
   const [msg, setMsg] = useState('')
   const [subiendo, setSubiendo] = useState(false)
   const juega = !!yo && titulares.some(t => t.jugador_id === yo)
 
+  const leerVotos = useCallback(async () => {
+    const { data } = await supabase
+      .from('votos_mvp')
+      .select('votante_id, votado_id')
+      .eq('partido_id', partido.id)
+    const rows = (data ?? []) as VotoMvpRow[]
+    setVotosMvp(rows)
+    if (yo) {
+      const mio = rows.find(r => r.votante_id === yo)
+      if (mio) setMiVoto(mio.votado_id)
+    }
+  }, [partido.id, yo])
+
   useEffect(() => {
-    const leer = () =>
-      supabase.rpc('progreso_mvp', { p_partido: partido.id }).then(({ data }) => {
-        if (data?.[0]) setProg(data[0])
-      })
-    leer()
-    if (partido.mvp_cerrado) return
-    const t = setInterval(leer, 5000)
-    return () => clearInterval(t)
-  }, [partido.id, partido.mvp_cerrado, miVoto])
+    leerVotos()
+    const ch = supabase
+      .channel(`mvp-${partido.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'votos_mvp', filter: `partido_id=eq.${partido.id}` },
+        leerVotos,
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(ch)
+    }
+  }, [partido.id, leerVotos])
 
   async function contar(i: Inscripcion, campo: 'goles' | 'asistencias', d: number) {
     const goles = Math.max(0, i.goles + (campo === 'goles' ? d : 0))
@@ -45,7 +67,8 @@ export default function TercerTiempo({ partido, titulares, yo, token, onChange }
   async function votar() {
     if (!yo || !miVoto) return
     const { error } = await supabase.rpc('votar_mvp', { p_partido: partido.id, p_votante: yo, p_votado: miVoto })
-    setMsg(error?.message ?? '¡Voto registrado en la urna!')
+    setMsg(error?.message ?? '¡Tu voto al MVP fue publicado!')
+    leerVotos()
     onChange()
   }
 
@@ -70,7 +93,22 @@ export default function TercerTiempo({ partido, titulares, yo, token, onChange }
     onChange()
   }
 
+  const nombreDe = (jid: string) => titulares.find(t => t.jugador_id === jid)?.jugadores?.nombre ?? 'Jugador'
   const mvps = titulares.filter(t => t.es_mvp)
+
+  // Agrupar votos por candidato para mostrar el conteo público en vivo
+  const conteoCandidatos = titulares
+    .map(t => {
+      const quienesVotaron = votosMvp.filter(v => v.votado_id === t.jugador_id).map(v => nombreDe(v.votante_id))
+      return {
+        jugador_id: t.jugador_id,
+        nombre: t.jugadores?.nombre ?? 'Jugador',
+        votos: quienesVotaron.length,
+        votantes: quienesVotaron,
+      }
+    })
+    .filter(c => c.votos > 0)
+    .sort((a, b) => b.votos - a.votos)
 
   const Counter = ({ i, campo }: { i: Inscripcion; campo: 'goles' | 'asistencias' }) => {
     const puede = i.jugador_id === yo || esAdmin
@@ -136,58 +174,19 @@ export default function TercerTiempo({ partido, titulares, yo, token, onChange }
         </ul>
       </div>
 
-      {/* Urna Secreta y Revelación MVP */}
+      {/* Votación Pública del MVP */}
       <div className="card flex flex-col justify-between space-y-4">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-amber-400">
-          <Crown size={15} />
-          MVP de la Fecha
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-amber-400">
+            <Crown size={15} />
+            Votación Pública · MVP de la Fecha
+          </div>
+          <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-bold text-white">
+            {votosMvp.length}/{titulares.length} votos
+          </span>
         </div>
 
-        {!partido.mvp_cerrado ? (
-          <div className="space-y-4 my-auto">
-            <div className="rounded-3xl border border-red-500/30 bg-zinc-950/80 p-5 space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-bold text-white">Urna secreta activa 🤫</span>
-                <span className="text-xs font-bold text-red-300">
-                  {prog.votaron} de {prog.total} votos
-                </span>
-              </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  className="h-full bg-gradient-to-r from-red-600 to-white transition-all"
-                  style={{ width: `${prog.total ? (prog.votaron / prog.total) * 100 : 0}%` }}
-                />
-              </div>
-              <p className="text-xs text-zinc-400">
-                El ganador se revela automáticamente cuando votan todos los titulares o cuando el organizador cierra la urna.
-              </p>
-            </div>
-
-            {juega && (
-              <div className="space-y-3">
-                <select className="input" value={miVoto} onChange={e => setMiVoto(e.target.value)}>
-                  <option value="">Elegí a la figura de la cancha…</option>
-                  {titulares
-                    .filter(t => t.jugador_id !== yo)
-                    .map(t => (
-                      <option key={t.id} value={t.jugador_id}>
-                        {t.jugadores?.nombre}
-                      </option>
-                    ))}
-                </select>
-                <button type="button" className="btn-red w-full" disabled={!miVoto} onClick={votar}>
-                  Votar MVP en secreto
-                </button>
-              </div>
-            )}
-
-            {esAdmin && (
-              <button type="button" className="btn-ghost w-full" onClick={cerrarUrna}>
-                Cerrar urna y revelar MVP ahora
-              </button>
-            )}
-          </div>
-        ) : (
+        {partido.mvp_cerrado && (
           <div className="rounded-3xl border-2 border-amber-400/80 bg-gradient-to-b from-red-600/30 via-zinc-900 to-zinc-950 p-6 text-center shadow-[0_20px_50px_rgba(245,158,11,0.2)]">
             <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-red-600">
               FIGURA QUEMERA {partido.numero_fecha ? `· FECHA #${partido.numero_fecha}` : ''}
@@ -221,6 +220,65 @@ export default function TercerTiempo({ partido, titulares, yo, token, onChange }
                   onChange={e => e.target.files?.[0] && subirFoto(e.target.files[0])}
                 />
               </label>
+            )}
+          </div>
+        )}
+
+        {/* Pizarra pública de votos en tiempo real */}
+        <div className="rounded-3xl border border-white/10 bg-zinc-950/80 p-4 space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+            Votos en vivo (públicos)
+          </div>
+
+          {conteoCandidatos.length === 0 ? (
+            <p className="py-3 text-center text-xs text-zinc-500">Todavía nadie votó al MVP.</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {conteoCandidatos.map(c => (
+                <li key={c.jugador_id} className="rounded-2xl border border-white/10 bg-zinc-900/70 p-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-black text-white">{c.nombre}</span>
+                    <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-black text-white">
+                      {c.votos} {c.votos === 1 ? 'voto' : 'votos'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Votado por: <span className="font-medium text-zinc-200">{c.votantes.join(', ')}</span>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {!partido.mvp_cerrado && (
+          <div className="space-y-3">
+            {juega ? (
+              <>
+                <select className="input" value={miVoto} onChange={e => setMiVoto(e.target.value)}>
+                  <option value="">Elegí a la figura de la cancha…</option>
+                  {titulares
+                    .filter(t => t.jugador_id !== yo)
+                    .map(t => (
+                      <option key={t.id} value={t.jugador_id}>
+                        {t.jugadores?.nombre}
+                      </option>
+                    ))}
+                </select>
+                <button type="button" className="btn-red w-full" disabled={!miVoto} onClick={votar}>
+                  Publicar mi voto al MVP
+                </button>
+              </>
+            ) : (
+              <p className="text-center text-xs text-zinc-400">
+                Iniciá sesión con tu cuenta de titular para votar al MVP.
+              </p>
+            )}
+
+            {esAdmin && (
+              <button type="button" className="btn-ghost w-full" onClick={cerrarUrna}>
+                Cerrar votación y coronar MVP ahora
+              </button>
             )}
           </div>
         )}

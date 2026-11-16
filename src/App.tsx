@@ -1,11 +1,26 @@
+import { useEffect, useState } from 'react'
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
-import { Crown, Trophy } from 'lucide-react'
+import { Trophy, User, LogOut } from 'lucide-react'
 import Crear from './pages/Crear'
 import Stats from './pages/Stats'
 import Sala from './pages/Sala'
+import AuthModal from './components/AuthModal'
+import { getMiJugador, getMiNombre, clearMiSesion } from './lib/supabase'
 
 export default function App() {
   const { pathname } = useLocation()
+  const [yoId, setYoId] = useState<string | null>(getMiJugador())
+  const [yoNombre, setYoNombre] = useState<string | null>(getMiNombre())
+  const [showAuth, setShowAuth] = useState(false)
+
+  useEffect(() => {
+    const sync = () => {
+      setYoId(getMiJugador())
+      setYoNombre(getMiNombre())
+    }
+    window.addEventListener('fulbito-auth-change', sync)
+    return () => window.removeEventListener('fulbito-auth-change', sync)
+  }, [])
 
   return (
     <div className="min-h-screen text-slate-100">
@@ -28,7 +43,7 @@ export default function App() {
             </div>
           </Link>
 
-          <nav className="flex items-center gap-2 sm:gap-4 text-sm">
+          <nav className="flex items-center gap-2 sm:gap-3 text-sm">
             <Link
               to="/"
               className={`rounded-2xl px-3.5 py-2 font-semibold transition ${
@@ -50,13 +65,35 @@ export default function App() {
               <Trophy size={15} className="text-amber-300" />
               <span>Tablas</span>
             </Link>
-            <span className="hidden items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white md:inline-flex">
-              <Crown size={13} className="text-red-500" />
-              En vivo
-            </span>
+
+            {yoId && yoNombre ? (
+              <div className="flex items-center gap-1.5 rounded-2xl border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold text-white">
+                <User size={14} className="text-red-400" />
+                <span className="max-w-[100px] truncate">{yoNombre}</span>
+                <button
+                  type="button"
+                  title="Cerrar sesión"
+                  onClick={clearMiSesion}
+                  className="ml-1 rounded-lg p-1 text-zinc-400 hover:bg-red-500/20 hover:text-red-300"
+                >
+                  <LogOut size={13} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAuth(true)}
+                className="inline-flex items-center gap-1.5 rounded-2xl bg-white px-3.5 py-2 text-xs font-black text-red-600 shadow transition hover:bg-zinc-100"
+              >
+                <User size={14} />
+                <span>Entrar</span>
+              </button>
+            )}
           </nav>
         </div>
       </header>
+
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         <Routes>

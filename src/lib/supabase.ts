@@ -44,10 +44,30 @@ export interface Inscripcion {
 }
 
 const ADMIN_KEY = (id: string) => `fulbito_admin_${id}`
-const JUGADOR_KEY = 'fulbito_mi_jugador'
+const JUGADOR_ID_KEY = 'fulbito_mi_jugador_v2'
+const JUGADOR_NOMBRE_KEY = 'fulbito_mi_nombre_v2'
+const JUGADOR_TOKEN_KEY = 'fulbito_mi_token_v2'
 
 export const getAdminToken = (id: string) => localStorage.getItem(ADMIN_KEY(id))
 export const setAdminToken = (id: string, token: string) => localStorage.setItem(ADMIN_KEY(id), token)
 
-export const getMiJugador = () => localStorage.getItem(JUGADOR_KEY)
-export const setMiJugador = (id: string) => localStorage.setItem(JUGADOR_KEY, id)
+export const getMiJugador = () => localStorage.getItem(JUGADOR_ID_KEY)
+export const getMiNombre = () => localStorage.getItem(JUGADOR_NOMBRE_KEY)
+export const getMiToken = () => localStorage.getItem(JUGADOR_TOKEN_KEY)
+
+export function setMiSesion(id: string, nombre: string, token: string) {
+  localStorage.setItem(JUGADOR_ID_KEY, id)
+  localStorage.setItem(JUGADOR_NOMBRE_KEY, nombre)
+  localStorage.setItem(JUGADOR_TOKEN_KEY, token)
+  window.dispatchEvent(new Event('fulbito-auth-change'))
+}
+
+export function clearMiSesion() {
+  localStorage.removeItem(JUGADOR_ID_KEY)
+  localStorage.removeItem(JUGADOR_NOMBRE_KEY)
+  localStorage.removeItem(JUGADOR_TOKEN_KEY)
+  window.dispatchEvent(new Event('fulbito-auth-change'))
+}
+
+// Compatibilidad
+export const setMiJugador = (id: string) => localStorage.setItem(JUGADOR_ID_KEY, id)
