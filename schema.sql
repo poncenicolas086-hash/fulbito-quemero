@@ -279,12 +279,22 @@ create or replace function cerrar_urna_mvp(p_partido uuid, p_token text) returns
 language plpgsql security definer as $$
 begin perform _chk(p_partido,p_token); perform _resolver_mvp(p_partido,true); end $$;
 
--- Fórmula: 1 presencia + min(goles,5) + min(asist,5) + 5 si MVP
+-- Fórmula: +1 presencia, +min(goles,5), +min(asist,5), +2 goleador del partido, +3 MVP
 create or replace function recalcular_puntos(p_partido uuid) returns void
-language sql security definer as $$
-  update inscripciones set puntos_mvp_fecha = 1 + least(goles,5) + least(asistencias,5) + (case when es_mvp then 5 else 0 end)
+language plpgsql security definer as $$
+declare max_g int;
+begin
+  select coalesce(max(goles),0) into max_g from inscripciones
   where partido_id=p_partido and jugador_id in (select titulares(p_partido));
-$$;
+
+  update inscripciones set puntos_mvp_fecha =
+    1
+    + least(goles,5)
+    + least(asistencias,5)
+    + (case when max_g > 0 and goles = max_g then 2 else 0 end)
+    + (case when es_mvp then 3 else 0 end)
+  where partido_id=p_partido and jugador_id in (select titulares(p_partido));
+end $$;
 
 create or replace function guardar_goles(p_partido uuid, p_jugador uuid, p_goles int, p_asist int) returns void
 language plpgsql security definer as $$

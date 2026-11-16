@@ -1,5 +1,5 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
-import { Crown, Trophy, Flame } from 'lucide-react'
+import { Crown, Trophy } from 'lucide-react'
 import Crear from './pages/Crear'
 import Stats from './pages/Stats'
 import Sala from './pages/Sala'
@@ -15,8 +15,8 @@ export default function App() {
       <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <Link to="/" className="flex items-center gap-3 font-black tracking-tight text-white group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-white to-zinc-200 text-red-600 shadow-[0_0_20px_rgba(220,38,38,0.45)] ring-2 ring-red-500 transition group-hover:scale-105">
-              <Flame size={20} className="fill-red-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 p-1.5 shadow-[0_0_20px_rgba(220,38,38,0.45)] ring-2 ring-red-500 transition group-hover:scale-105">
+              <img src="/favicon.png" alt="Fulbito Quemero" className="h-full w-full object-contain" />
             </div>
             <div>
               <span className="text-lg tracking-tight">

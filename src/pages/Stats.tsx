@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Crown, Camera, ChevronLeft, ChevronRight, Trophy, CheckCircle2 } from 'lucide-react'
+import { Crown, Camera, ChevronLeft, ChevronRight, Trophy, CheckCircle2, Info } from 'lucide-react'
 import { supabase, PARTIDO_COLS, type Partido, type Inscripcion } from '../lib/supabase'
 
 interface Fila {
@@ -10,8 +10,31 @@ interface Fila {
   asistencias: number
   puntos: number
   mvps: number
+  goleador_fechas: number
 }
+
 const medalla = (n: number) => ['🥇', '🥈', '🥉'][n] ?? `${n + 1}.`
+
+const REGLAS_PUNTOS = [
+  { pts: '+1', titulo: 'Presencia', desc: 'Por jugar la fecha como titular' },
+  { pts: '+1', titulo: 'Por gol', desc: 'Máximo 5 puntos por partido' },
+  { pts: '+1', titulo: 'Por asistencia', desc: 'Máximo 5 puntos por partido' },
+  { pts: '+2', titulo: 'Goleador del partido', desc: 'Al máximo artillero de la fecha (mín. 1 gol)' },
+  { pts: '+3', titulo: 'MVP del partido', desc: 'Elegido figura en la votación secreta' },
+]
+
+export function calcularPuntosJugadorFecha(x: Inscripcion, maxGolesPartido: number) {
+  const presencia = 1
+  const ptsGoles = Math.min(x.goles ?? 0, 5)
+  const ptsAsist = Math.min(x.asistencias ?? 0, 5)
+  const esGoleadorFecha = maxGolesPartido > 0 && (x.goles ?? 0) === maxGolesPartido
+  const ptsGoleador = esGoleadorFecha ? 2 : 0
+  const ptsMvp = x.es_mvp ? 3 : 0
+  return {
+    total: presencia + ptsGoles + ptsAsist + ptsGoleador + ptsMvp,
+    esGoleadorFecha,
+  }
+}
 
 export default function Stats() {
   const [vista, setVista] = useState<'anual' | 'fecha'>('anual')
@@ -37,6 +60,28 @@ export default function Stats() {
           ))}
         </div>
       </div>
+
+      {/* Apartado explicativo de cómo se suman los puntos */}
+      <section className="card space-y-3 border-red-500/30">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-red-400">
+          <Info size={15} />
+          Sistema de puntuación · ¿Cómo se suman los puntos?
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {REGLAS_PUNTOS.map(r => (
+            <div
+              key={r.titulo}
+              className="flex flex-col justify-between rounded-2xl border border-white/10 bg-zinc-950/75 p-3.5"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white">{r.titulo}</span>
+                <span className="rounded-lg bg-red-600 px-2 py-0.5 text-xs font-black text-white">{r.pts}</span>
+              </div>
+              <p className="mt-2 text-[11px] leading-snug text-zinc-400">{r.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {vista === 'anual' ? <Anual /> : <PorFecha />}
     </div>
@@ -82,6 +127,13 @@ function PorFecha() {
   }
 
   const mvps = insc.filter(x => x.es_mvp)
+  const maxGoles = Math.max(0, ...insc.map(x => x.goles ?? 0))
+  const filasFecha = insc
+    .map(x => {
+      const calc = calcularPuntosJugadorFecha(x, maxGoles)
+      return { ...x, puntosCalc: calc.total, esGoleadorFecha: calc.esGoleadorFecha }
+    })
+    .sort((a, b) => b.puntosCalc - a.puntosCalc || b.goles - a.goles)
 
   return (
     <div className="space-y-6">
@@ -151,32 +203,39 @@ function PorFecha() {
               </tr>
             </thead>
             <tbody>
-              {[...insc]
-                .sort((a, b) => b.puntos_mvp_fecha - a.puntos_mvp_fecha)
-                .map(x => (
-                  <tr key={x.id} className="border-b border-white/5">
-                    <td className="py-3 font-semibold text-white">
-                      {x.jugadores?.nombre}
-                      {x.es_mvp && <span className="ml-1.5">👑</span>}
-                    </td>
-                    <td className="py-3 text-center">
-                      {x.equipo ? (
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
-                            x.equipo === 'A' ? 'bg-white text-zinc-950' : 'bg-red-600 text-white'
-                          }`}
-                        >
-                          {x.equipo === 'A' ? 'Blanco' : 'Rojo'}
-                        </span>
-                      ) : (
-                        '–'
-                      )}
-                    </td>
-                    <td className="py-3 text-center font-bold">{x.goles}</td>
-                    <td className="py-3 text-center font-bold">{x.asistencias}</td>
-                    <td className="py-3 text-right font-black text-red-400">{x.puntos_mvp_fecha} pts</td>
-                  </tr>
-                ))}
+              {filasFecha.map(x => (
+                <tr key={x.id} className="border-b border-white/5">
+                  <td className="py-3 font-semibold text-white">
+                    {x.jugadores?.nombre}
+                    {x.es_mvp && (
+                      <span className="ml-1.5" title="MVP del partido (+3 pts)">
+                        👑
+                      </span>
+                    )}
+                    {x.esGoleadorFecha && (
+                      <span className="ml-1" title="Goleador del partido (+2 pts)">
+                        ⚽
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 text-center">
+                    {x.equipo ? (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+                          x.equipo === 'A' ? 'bg-white text-zinc-950' : 'bg-red-600 text-white'
+                        }`}
+                      >
+                        {x.equipo === 'A' ? 'Blanco' : 'Rojo'}
+                      </span>
+                    ) : (
+                      '–'
+                    )}
+                  </td>
+                  <td className="py-3 text-center font-bold">{x.goles}</td>
+                  <td className="py-3 text-center font-bold">{x.asistencias}</td>
+                  <td className="py-3 text-right font-black text-red-400">{x.puntosCalc} pts</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -192,16 +251,70 @@ function Anual() {
   const [foto, setFoto] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
 
-  const cargar = () => {
-    supabase.rpc('ranking_anual', { p_anio: anio }).then(({ data }) => setFilas((data ?? []) as Fila[]))
-    supabase
-      .from('premios_anuales')
-      .select('imagen_url')
-      .eq('anio', anio)
-      .maybeSingle()
-      .then(({ data }) => setFoto(data?.imagen_url ?? null))
+  const cargar = async () => {
+    const start = `${anio}-01-01T00:00:00.000Z`
+    const end = `${anio + 1}-01-01T00:00:00.000Z`
+
+    const [pRes, fotoRes] = await Promise.all([
+      supabase
+        .from('partidos')
+        .select(PARTIDO_COLS)
+        .in('estado', ['confirmado', 'finalizado'])
+        .gte('fecha_hora', start)
+        .lt('fecha_hora', end),
+      supabase.from('premios_anuales').select('imagen_url').eq('anio', anio).maybeSingle(),
+    ])
+
+    setFoto(fotoRes.data?.imagen_url ?? null)
+
+    const partidosAnio = (pRes.data ?? []) as unknown as Partido[]
+    if (partidosAnio.length === 0) {
+      setFilas([])
+      return
+    }
+
+    const ids = partidosAnio.map(p => p.id)
+    const { data: inscData } = await supabase
+      .from('inscripciones')
+      .select('*, jugadores(id,nombre)')
+      .in('partido_id', ids)
+      .order('orden_llegada')
+
+    const todasInsc = (inscData ?? []) as Inscripcion[]
+    const map = new Map<string, Fila>()
+
+    for (const p of partidosAnio) {
+      const titulares = todasInsc.filter(i => i.partido_id === p.id).slice(0, p.cupo_maximo)
+      const maxGoles = Math.max(0, ...titulares.map(t => t.goles ?? 0))
+
+      for (const t of titulares) {
+        const calc = calcularPuntosJugadorFecha(t, maxGoles)
+        const cur = map.get(t.jugador_id) ?? {
+          jugador_id: t.jugador_id,
+          nombre: t.jugadores?.nombre ?? 'Jugador',
+          partidos: 0,
+          goles: 0,
+          asistencias: 0,
+          puntos: 0,
+          mvps: 0,
+          goleador_fechas: 0,
+        }
+        cur.partidos += 1
+        cur.goles += t.goles ?? 0
+        cur.asistencias += t.asistencias ?? 0
+        cur.puntos += calc.total
+        cur.mvps += t.es_mvp ? 1 : 0
+        cur.goleador_fechas += calc.esGoleadorFecha ? 1 : 0
+        map.set(t.jugador_id, cur)
+      }
+    }
+
+    setFilas([...map.values()].sort((a, b) => b.puntos - a.puntos || b.goles - a.goles))
   }
-  useEffect(cargar, [anio])
+
+  useEffect(() => {
+    cargar()
+  }, [anio])
 
   const lider = filas[0]
   const topGoleador = [...filas].sort((a, b) => b.goles - a.goles)[0]
@@ -279,7 +392,9 @@ function Anual() {
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Goleador del Año ⚽</div>
             <div className="mt-2 text-2xl font-black text-white">{topGoleador?.nombre ?? 'Sin datos'}</div>
             <div className="mt-1 text-sm font-bold text-red-400">
-              {topGoleador ? `${topGoleador.goles} goles (${(topGoleador.goles / Math.max(topGoleador.partidos, 1)).toFixed(2)}/partido)` : '0 goles'}
+              {topGoleador
+                ? `${topGoleador.goles} goles (${(topGoleador.goles / Math.max(topGoleador.partidos, 1)).toFixed(2)}/partido)`
+                : '0 goles'}
             </div>
           </div>
 
@@ -287,7 +402,9 @@ function Anual() {
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Máximo Asistidor 🎯</div>
             <div className="mt-2 text-2xl font-black text-white">{topAsistidor?.nombre ?? 'Sin datos'}</div>
             <div className="mt-1 text-sm font-bold text-white">
-              {topAsistidor ? `${topAsistidor.asistencias} asistencias (${(topAsistidor.asistencias / Math.max(topAsistidor.partidos, 1)).toFixed(2)}/partido)` : '0 asistencias'}
+              {topAsistidor
+                ? `${topAsistidor.asistencias} asistencias (${(topAsistidor.asistencias / Math.max(topAsistidor.partidos, 1)).toFixed(2)}/partido)`
+                : '0 asistencias'}
             </div>
           </div>
         </div>

@@ -208,7 +208,7 @@ export default function TercerTiempo({ partido, titulares, yo, token, onChange }
             <p className="text-2xl font-black text-white">
               {mvps.map(m => m.jugadores?.nombre).join(' & ') || 'Sin votos registrados'}
             </p>
-            <p className="mt-1 text-xs font-semibold text-amber-300">+5 pts bonus en la Tabla Anual</p>
+            <p className="mt-1 text-xs font-semibold text-amber-300">+3 pts bonus MVP en la Tabla</p>
 
             {esAdmin && (
               <label className="btn-white mt-4 inline-flex cursor-pointer items-center gap-2 text-xs">
