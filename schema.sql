@@ -114,7 +114,7 @@ create policy "leer votos mvp" on votos_mvp for select using (true);
 
 create or replace function entrar_jugador(p_nombre text, p_pin text)
 returns table(id uuid, nombre text, token text, es_nuevo boolean)
-language plpgsql security definer as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
   j record;
   v_nombre text := trim(p_nombre);
