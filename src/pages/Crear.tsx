@@ -117,7 +117,7 @@ export default function Crear() {
                   Organizá tu <span className="bg-gradient-to-r from-white via-red-200 to-red-500 bg-clip-text text-transparent">Fulbito</span> en minutos.
                 </h1>
                 <p className="mt-4 text-sm leading-relaxed text-zinc-200 md:text-base">
-                  Convocá a los pibes, votá las cartas FUT en secreto, armá equipos equilibrados Blanco vs Rojo y coroná al MVP de cada fecha.
+                  Convocá a los pibes, votá el puntaje de cada uno del 1 al 10 en secreto, armá equipos equilibrados Blanco vs Rojo y coroná al MVP de cada fecha.
                 </p>
               </div>
 
@@ -174,7 +174,7 @@ export default function Crear() {
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
               <div className="text-xs font-bold uppercase tracking-wider text-white">2. Voto Secreto</div>
-              <div className="mt-1 text-xs text-zinc-300">Cartas FUT y armado parejo</div>
+              <div className="mt-1 text-xs text-zinc-300">Puntajes del 1 al 10 y armado parejo</div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
               <div className="text-xs font-bold uppercase tracking-wider text-red-300">3. Tercer Tiempo</div>

@@ -17,7 +17,7 @@ export default function Versus({ partidoId, titulares }: { partidoId: string; ti
 
   const eq = (e: 'A' | 'B') => titulares.filter(t => t.equipo === e)
   const prom = (l: Inscripcion[]) =>
-    l.length ? (l.reduce((a, t) => a + (medias[t.jugador_id] ?? 50), 0) / l.length).toFixed(1) : '–'
+    l.length ? (l.reduce((a, t) => a + (medias[t.jugador_id] ?? 6), 0) / l.length).toFixed(1) : '–'
 
   const teamA = eq('A')
   const teamB = eq('B')
@@ -49,7 +49,7 @@ export default function Versus({ partidoId, titulares }: { partidoId: string; ti
                 <div className="mt-1 text-base font-black text-white">BLANCO</div>
               </div>
               <div className="text-right">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Media</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Promedio</div>
                 <div className="text-3xl font-black text-white">{prom(teamA)}</div>
               </div>
             </div>
@@ -61,7 +61,7 @@ export default function Versus({ partidoId, titulares }: { partidoId: string; ti
                 >
                   <span className="truncate font-medium text-white">{t.jugadores?.nombre}</span>
                   <b className="rounded-lg bg-white/15 px-2 py-0.5 text-xs font-black text-white">
-                    {medias[t.jugador_id]?.toFixed(0) ?? '50'}
+                    {medias[t.jugador_id]?.toFixed(1) ?? '6.0'}
                   </b>
                 </li>
               ))}
@@ -78,7 +78,7 @@ export default function Versus({ partidoId, titulares }: { partidoId: string; ti
                 <div className="mt-1 text-base font-black text-red-400">ROJO</div>
               </div>
               <div className="text-right">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-red-300">Media</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-red-300">Promedio</div>
                 <div className="text-3xl font-black text-white">{prom(teamB)}</div>
               </div>
             </div>
@@ -90,7 +90,7 @@ export default function Versus({ partidoId, titulares }: { partidoId: string; ti
                 >
                   <span className="truncate font-medium text-white">{t.jugadores?.nombre}</span>
                   <b className="rounded-lg bg-red-600/30 px-2 py-0.5 text-xs font-black text-red-200">
-                    {medias[t.jugador_id]?.toFixed(0) ?? '50'}
+                    {medias[t.jugador_id]?.toFixed(1) ?? '6.0'}
                   </b>
                 </li>
               ))}

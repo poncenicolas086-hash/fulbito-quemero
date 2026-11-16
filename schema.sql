@@ -98,6 +98,13 @@ create policy "bajarse" on inscripciones for delete using (true);
 create policy "cargar goles" on inscripciones for update using (true) with check (true);
 -- votos_*: SIN políticas => nadie los lee ni escribe directo; solo vía RPC.
 
+-- Permisos de tablas para cliente público (anon / authenticated)
+grant usage on schema public to anon, authenticated;
+grant select, insert on public.jugadores to anon, authenticated;
+grant select, insert, update, delete on public.inscripciones to anon, authenticated;
+grant select, insert, update on public.premios_anuales to anon, authenticated;
+grant usage, select on all sequences in schema public to anon, authenticated;
+
 -- El admin_token nunca se expone al cliente anónimo
 revoke select on partidos from anon, authenticated;
 grant select (id, formato, cupo_maximo, fecha_hora, ubicacion, link_maps, precio_cancha,
@@ -201,7 +208,7 @@ declare ids uuid[]; ms numeric[]; n int; i int; j int; k int;
 begin
   perform _chk(p_partido,p_token);
   select array_agg(x.jid order by x.m desc), array_agg(x.m order by x.m desc) into ids, ms from (
-    select i.jugador_id jid, coalesce(m.media,50) m from inscripciones i
+    select i.jugador_id jid, coalesce(m.media,6) m from inscripciones i
     left join medias_partido(p_partido) m on m.jugador_id=i.jugador_id
     where i.partido_id=p_partido
     order by i.orden_llegada limit (select cupo_maximo from partidos where id=p_partido)

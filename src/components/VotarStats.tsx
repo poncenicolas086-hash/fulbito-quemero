@@ -12,8 +12,9 @@ const STATS = [
 ] as const
 type Key = (typeof STATS)[number][0]
 type Vals = Record<Key, number>
-const base = (): Vals => ({ ritmo: 70, tiro: 70, pase: 70, regate: 70, defensa: 70, fisico: 70 })
-const media = (v: Vals) => Math.round(Object.values(v).reduce((a, b) => a + b, 0) / 6)
+const base = (): Vals => ({ ritmo: 6, tiro: 6, pase: 6, regate: 6, defensa: 6, fisico: 6 })
+const clamp10 = (n: number) => Math.min(10, Math.max(1, n > 10 ? Math.round(n / 10) : n))
+const media = (v: Vals) => (Object.values(v).reduce((a, b) => a + b, 0) / 6).toFixed(1)
 
 export default function VotarStats({
   partidoId,
@@ -37,12 +38,12 @@ export default function VotarStats({
       ;(data ?? []).forEach((r: any) => {
         g.add(r.votado_id)
         v[r.votado_id] = {
-          ritmo: r.ritmo,
-          tiro: r.tiro,
-          pase: r.pase,
-          regate: r.regate,
-          defensa: r.defensa,
-          fisico: r.fisico,
+          ritmo: clamp10(r.ritmo),
+          tiro: clamp10(r.tiro),
+          pase: clamp10(r.pase),
+          regate: clamp10(r.regate),
+          defensa: clamp10(r.defensa),
+          fisico: clamp10(r.fisico),
         }
       })
       setVotos(v)
@@ -78,7 +79,7 @@ export default function VotarStats({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-red-400">
           <Star size={15} className="text-amber-400" />
-          Carta FUT · Votación secreta de nivel
+          Puntajes del 1 al 10 · Votación secreta de nivel
         </div>
         <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-bold text-white">
           {guardados.size}/{otros.length} votados
@@ -111,13 +112,13 @@ export default function VotarStats({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] items-center">
-        {/* Carta FUT Albirroja */}
+        {/* Tarjeta de Jugador Albirroja */}
         <div className="relative mx-auto w-full max-w-xs overflow-hidden rounded-[32px] border-2 border-white/80 bg-gradient-to-b from-red-600 via-red-900 to-zinc-950 p-6 shadow-[0_20px_50px_rgba(220,38,38,0.35)] ring-4 ring-red-600/30">
           <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/20 blur-2xl" />
           <div className="flex items-start justify-between border-b border-white/20 pb-4">
             <div>
-              <div className="text-6xl font-black leading-none text-white drop-shadow">{media(vals)}</div>
-              <div className="mt-1 text-[10px] font-black uppercase tracking-[0.25em] text-red-200">MEDIA FUT</div>
+              <div className="text-5xl font-black leading-none text-white drop-shadow">{media(vals)}</div>
+              <div className="mt-1 text-[10px] font-black uppercase tracking-[0.25em] text-red-200">PROMEDIO</div>
             </div>
             <div className="text-right">
               <span className="rounded-full bg-white px-2.5 py-0.5 text-[10px] font-black uppercase text-red-600">
@@ -140,19 +141,22 @@ export default function VotarStats({
           </div>
         </div>
 
-        {/* Sliders de atributos */}
+        {/* Sliders de atributos (1 a 10) */}
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             {STATS.map(([k, , fullLabel]) => (
               <div key={k} className="space-y-2 rounded-2xl border border-white/10 bg-zinc-950/70 p-3.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold uppercase tracking-wider text-zinc-300">{fullLabel}</span>
-                  <span className="rounded-lg bg-red-600/20 px-2 py-0.5 font-black text-white">{vals[k]}</span>
+                  <span className="rounded-lg bg-red-600/20 px-2.5 py-0.5 font-black text-white">
+                    {vals[k]} <span className="text-[10px] font-normal text-zinc-400">/ 10</span>
+                  </span>
                 </div>
                 <input
                   type="range"
                   min={1}
-                  max={99}
+                  max={10}
+                  step={1}
                   value={vals[k]}
                   onChange={e => set(k, +e.target.value)}
                   className="h-2 w-full cursor-pointer accent-red-500"
@@ -165,8 +169,8 @@ export default function VotarStats({
 
           <div className="flex items-center justify-between rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-300">Promedio asignado</div>
-              <div className="text-2xl font-black text-white">{media(vals)}</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-300">Puntaje general</div>
+              <div className="text-2xl font-black text-white">{media(vals)} / 10</div>
             </div>
             <button type="button" className="btn-white" onClick={guardar}>
               {guardados.has(cur.jugador_id) ? 'Actualizar voto secreto' : 'Guardar voto secreto'}
