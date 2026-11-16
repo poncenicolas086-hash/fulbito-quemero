@@ -161,7 +161,10 @@ end $$;
 
 create or replace function cancelar_partido(p_partido uuid, p_token text) returns void
 language plpgsql security definer as $$
-begin perform _chk(p_partido,p_token); update partidos set estado='cancelado' where id=p_partido; end $$;
+begin
+  perform _chk(p_partido,p_token);
+  update partidos set estado='cancelado', numero_fecha=null where id=p_partido;
+end $$;
 
 create or replace function finalizar_partido(p_partido uuid, p_token text, p_resultado text) returns void
 language plpgsql security definer as $$

@@ -268,18 +268,36 @@ export default function Sala() {
                   </>
                 )}
                 {partido.estado === 'confirmado' && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        className="btn-red py-2.5 text-xs"
+                        onClick={() => rpc('finalizar_partido', { p_resultado: prompt('Resultado (ej: Rojo 6 - 5 Blanco)') ?? '' })}
+                      >
+                        Finalizar partido
+                      </button>
+                      <button type="button" className="btn-ghost py-2.5 text-xs text-amber-300" onClick={() => setReprog(true)}>
+                        Reprogramar
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      className="btn-red py-2.5 text-xs"
-                      onClick={() => rpc('finalizar_partido', { p_resultado: prompt('Resultado (ej: Rojo 6 - 5 Blanco)') ?? '' })}
+                      className="btn-ghost w-full py-2 text-xs text-zinc-400 hover:text-red-300"
+                      onClick={() => confirm('¿Cancelar el partido?') && rpc('cancelar_partido')}
                     >
-                      Finalizar partido
-                    </button>
-                    <button type="button" className="btn-ghost py-2.5 text-xs text-amber-300" onClick={() => setReprog(true)}>
-                      Reprogramar
+                      Cancelar partido
                     </button>
                   </div>
+                )}
+                {partido.estado === 'finalizado' && (
+                  <button
+                    type="button"
+                    className="btn-ghost w-full py-2 text-xs text-zinc-400 hover:text-red-300"
+                    onClick={() => confirm('¿Cancelar este partido finalizado?') && rpc('cancelar_partido')}
+                  >
+                    Cancelar / Descartar fecha
+                  </button>
                 )}
               </div>
             )}

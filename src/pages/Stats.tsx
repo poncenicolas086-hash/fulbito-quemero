@@ -96,12 +96,14 @@ function PorFecha() {
   useEffect(() => {
     supabase
       .from('partidos')
-      .select(PARTIDO_COLS)
+      .select(`${PARTIDO_COLS}, inscripciones(id)`)
       .in('estado', ['confirmado', 'finalizado'])
       .not('numero_fecha', 'is', null)
       .order('numero_fecha')
       .then(({ data }) => {
-        const p = (data ?? []) as unknown as Partido[]
+        const p = ((data ?? []) as unknown as (Partido & { inscripciones?: { id: string }[] })[]).filter(
+          m => (m.inscripciones?.length ?? 0) > 0,
+        )
         setPartidos(p)
         setI(Math.max(p.length - 1, 0))
       })
@@ -145,7 +147,7 @@ function PorFecha() {
           <span className="rounded-full bg-red-600/20 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-red-300">
             Resumen de Fecha
           </span>
-          <div className="mt-1 text-2xl font-black text-white">Fecha #{p.numero_fecha}</div>
+          <div className="mt-1 text-2xl font-black text-white">Fecha #{i + 1}</div>
           <div className="text-xs text-zinc-400">
             {new Date(p.fecha_hora).toLocaleDateString('es-AR', { dateStyle: 'full' })}
             {p.resultado_texto ? ` · ${p.resultado_texto}` : ''}
@@ -164,7 +166,7 @@ function PorFecha() {
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         {/* Tarjeta MVP de la Fecha */}
         <div className="card-white flex flex-col items-center justify-center text-center p-6">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-red-300">MVP DE LA FECHA #{p.numero_fecha}</p>
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-red-300">MVP DE LA FECHA #{i + 1}</p>
           {p.mvp_imagen_url ? (
             <img
               src={p.mvp_imagen_url}

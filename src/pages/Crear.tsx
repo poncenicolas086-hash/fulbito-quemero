@@ -46,9 +46,15 @@ export default function Crear() {
     supabase
       .from('partidos')
       .select(`${PARTIDO_COLS}, inscripciones(id)`)
+      .neq('estado', 'cancelado')
       .order('fecha_hora', { ascending: false })
       .limit(18)
-      .then(({ data }) => setPartidos((data ?? []) as unknown as PartidoConConteo[]))
+      .then(({ data }) => {
+        const rows = ((data ?? []) as unknown as PartidoConConteo[]).filter(
+          m => !(m.estado === 'finalizado' && (m.inscripciones?.length ?? 0) === 0),
+        )
+        setPartidos(rows)
+      })
   }, [])
 
   const cupo = formato === 'CUSTOM' ? custom : FORMATOS[formato]
