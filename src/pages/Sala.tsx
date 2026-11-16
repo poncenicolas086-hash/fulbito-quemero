@@ -36,7 +36,7 @@ export default function Sala() {
   const [yo, setYo] = useState<string | null>(getMiJugador())
   const [yoNombre, setYoNombre] = useState<string | null>(getMiNombre())
   const [reprog, setReprog] = useState(false)
-  const [copied, setCopied] = useState<'player' | 'admin' | null>(null)
+  const [copied, setCopied] = useState<'player' | 'admin' | 'msg' | null>(null)
 
   // Campos de login rápido en la sala
   const [nick, setNick] = useState('')
@@ -152,6 +152,7 @@ export default function Sala() {
       month: 'long',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     })
     const fechaCap = fecha.charAt(0).toUpperCase() + fecha.slice(1)
     const lugares = Math.max(p.cupo_maximo - titulares.length, 0)
@@ -173,6 +174,26 @@ export default function Sala() {
       base,
     ]
     return lineas.filter(l => l !== null).join('\n')
+  }
+
+  async function compartirWhatsApp() {
+    const texto = mensajeWhatsApp()
+    const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    if (esMovil && navigator.share) {
+      try {
+        await navigator.share({ text: texto })
+        return
+      } catch {
+        /* si el usuario cancela, seguimos al link */
+      }
+    }
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
+  }
+
+  function copiarMensaje() {
+    navigator.clipboard.writeText(mensajeWhatsApp())
+    setCopied('msg')
+    setTimeout(() => setCopied(null), 2000)
   }
 
   return (
@@ -274,7 +295,11 @@ export default function Sala() {
                 </button>
 
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(mensajeWhatsApp())}`}
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(mensajeWhatsApp())}`}
+                  onClick={e => {
+                    e.preventDefault()
+                    compartirWhatsApp()
+                  }}
                   target="_blank"
                   rel="noreferrer"
                   className="flex w-full items-center justify-between rounded-2xl bg-[#25D366] px-3.5 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(37,211,102,0.3)] transition hover:bg-[#1ebe5a]"
@@ -284,6 +309,14 @@ export default function Sala() {
                     <path d="M17.47 14.38c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.75-.72 2-1.41.25-.69.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35zM12.04 21.5h-.01a9.45 9.45 0 0 1-4.82-1.32l-.35-.21-3.58.94.96-3.49-.23-.36a9.43 9.43 0 0 1-1.45-5.03c0-5.22 4.25-9.47 9.48-9.47 2.53 0 4.91.99 6.7 2.78a9.41 9.41 0 0 1 2.77 6.7c0 5.22-4.25 9.46-9.47 9.46zm8.06-17.53A11.33 11.33 0 0 0 12.04.63C5.76.63.65 5.74.65 12.02c0 2.01.52 3.97 1.52 5.69L.55 23.6l6.04-1.58a11.36 11.36 0 0 0 5.44 1.39h.01c6.28 0 11.39-5.11 11.39-11.39 0-3.04-1.19-5.9-3.33-8.05z" />
                   </svg>
                 </a>
+                <button
+                  type="button"
+                  onClick={copiarMensaje}
+                  className="flex w-full items-center justify-between rounded-2xl border border-[#25D366]/40 bg-[#25D366]/10 px-3.5 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-[#25D366]/20"
+                >
+                  <span>{copied === 'msg' ? '¡Mensaje copiado! Pegalo en el grupo' : 'Copiar mensaje para WhatsApp'}</span>
+                  {copied === 'msg' ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                </button>
 
                 {esAdmin && (
                   <button
